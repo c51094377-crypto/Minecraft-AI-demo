@@ -2,56 +2,133 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>マイクラ設計図ジェネレーター (ブラウザ版)</title>
+    <title>マインクラフト AI建築アシスタント</title>
     <!-- PyScriptの読み込み -->
     <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
     <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f4f9; }
+        .chat-box { background: white; border: 1px solid #ccc; padding: 15px; height: 300px; overflow-y: scroll; margin-bottom: 10px; border-radius: 5px; }
+        .user-msg { color: #0066cc; margin: 5px 0; }
+        .ai-msg { color: #333; margin: 5px 0; background: #eee; padding: 8px; border-radius: 5px; }
+        .input-area { display: flex; gap: 10px; }
+        input[type="text"] { flex: 1; padding: 10px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        #blueprint-container { margin-top: 20px; background: white; padding: 15px; border: 1px solid #ccc; border-radius: 5px; text-align: center; }
+    </style>
 </head>
 <body>
-    <h1>マイクラ建築 簡易設計図メーカー</h1>
-    <p>下のボタンを押すと、ブラウザ内でPythonが動いて設計図を描画します。</p>
-    
-    <button py-click="generate_blueprint">設計図を作成する</button>
-    
-    <div id="output" style="margin-top: 20px;"></div>
 
-    <!-- Pythonコードをここに記述 -->
+    <h1>🧱 マイクラ AI建築アシスタント</h1>
+    <p>マイクラの建築家AIとチャットしながら、どんな建物を作るか相談し、段階ごとの設計図（画像）を作ってもらいましょう！</p>
+
+    <!-- チャット表示エリア -->
+    <div id="chat-log" class="chat-box">
+        <div class="ai-msg"><b>AI建築家:</b> こんにちは！私はマインクラフトの建築アドバイザーです。今日はどんな建物を作りたいですか？（例：「和風の小さな家を作りたい」「モダンな拠点がいい」など、気軽に話しかけてください！）</div>
+    </div>
+
+    <!-- 入力エリア -->
+    <div class="input-area">
+        <input type="text" id="user-input" placeholder="ここに入力してチャット（例：木造の倉庫を作って）" />
+        <button py-click="send_message">送信する</button>
+    </div>
+
+    <!-- 設計図表示エリア -->
+    <div id="blueprint-container">
+        <h3>📐 生成された設計図 (段階別)</h3>
+        <p id="blueprint-desc">まだ設計図は生成されていません。チャットで建物を決定してください。</p>
+        <div id="blueprint-images" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin-top: 10px;"></div>
+    </div>
+
+    <!-- Pythonによるロジック -->
     <script type="py" config='{"packages": ["pillow"]}'>
         from pyscript import document
         from PIL import Image, ImageDraw
         import io
         import base64
 
-        def generate_blueprint(event):
-            # 16x16のグリッドで設計図を描画
-            grid_size = 16
-            scale = 20
+        def send_message(event):
+            # ユーザーの入力を取得
+            input_elem = document.querySelector("#user-input")
+            user_text = input_elem.value.strip()
+            if not user_text:
+                return
             
-            img = Image.new("RGB", (grid_size * scale, grid_size * scale), color="white")
-            draw = ImageDraw.Draw(img)
+            chat_log = document.querySelector("#chat-log")
             
-            # 簡単な外周と柱の描画ロジック
-            for x in range(grid_size):
-                for z in range(grid_size):
-                    if x == 0 or x == grid_size - 1 or z == 0 or z == grid_size - 1:
-                        color = (128, 128, 128) # 石
-                        if (x == 0 and z == 0) or (x == 0 and z == grid_size - 1):
-                            color = (139, 69, 19) # 木の柱
+            # ユーザーのメッセージを画面に追加
+            chat_log.innerHTML += f'<div class="user-msg"><b>あなた:</b> {user_text}</div>'
+            input_elem.value = ""
+            
+            # AIの返答と設計図生成のロジック
+            ai_reply, generate_flag = ai_brain(user_text)
+            
+            chat_log.innerHTML += f'<div class="ai-msg"><b>AI建築家:</b> {ai_reply}</div>'
+            chat_log.scrollTop = chat_log.scrollHeight  # スクロールを最下部に
+            
+            # 建築が決定した場合、段階ごとの設計図（画像）を生成する
+            if generate_flag:
+                create_step_blueprints(user_text)
+
+        def ai_brain(text):
+            # マイクラの超詳しいAIとしての簡易的な会話判定
+            text_lower = text.lower()
+            if "和風" in text_lower or "城" in text_lower or "神社" in text_lower:
+                return "和風建築ですね！原木（マツやトウヒ）と石、白系のブロック（感圧板やコンクリートパウダーなど）を組み合わせると非常に映えます。土台と柱、そして屋根の3段階に分けて設計図を作成しますね！", True
+            elif "モダン" in text_lower or "豆腐" in text_lower or "ガラス" in text_lower:
+                return "モダン建築ですね！クォーツブロック、コンクリート、そして大量のガラス板を使ってスタイリッシュに仕上げましょう。「1. 基礎と床」「2. 壁とガラス張りの窓」「3. フラットな屋根」の3段階で設計図を書きます！", True
+            elif "家" in text_lower or "拠点" in text_lower or "作り" in text_lower:
+                return "いいですね！サバイバル序盤でも作りやすい、機能的な拠点を提案します。「1. 1階の土台と柱」「2. 2階の居住スペース」「3. 屋根と入り口」の3段階で設計図を生成します！", True
+            else:
+                return "なるほど！そのテーマに合わせて最適なブロックの配置を考えますね。「1. 土台・床」「2. 壁・柱」「3. 屋根・仕上げ」の3段階で設計図を描画してみます！", True
+
+        def create_step_blueprints(theme):
+            desc_elem = document.querySelector("#blueprint-desc")
+            images_elem = document.querySelector("#blueprint-images")
+            
+            desc_elem.innerHTML = f"「{theme}」の建築に向けた、3つの段階別設計図（断面図）を生成しました！"
+            images_elem.innerHTML = ""
+            
+            # 3つの段階（1階、2階、屋根）の設計図画像をプログラムで動的生成
+            steps = ["Step 1: 土台・床", "Step 2: 壁・柱", "Step 3: 屋根・仕上げ"]
+            
+            for i, step_name in enumerate(steps):
+                grid_size = 12
+                scale = 16
+                img = Image.new("RGB", (grid_size * scale, grid_size * scale), color="white")
+                draw = ImageDraw.Draw(img)
+                
+                # 段階ごとに異なる模様を描画（マイクラの設計図風）
+                for x in range(grid_size):
+                    for z in range(grid_size):
+                        color = (240, 240, 240) # 空白
+                        # 外周や内部のパターン
+                        if x == 0 or x == grid_size - 1 or z == 0 or z == grid_size - 1:
+                            color = (139, 69, 19) if i == 0 else (128, 128, 128) # 土台は木、壁は石
+                        elif i >= 1 and (x == 2 or x == grid_size - 3) and (z == 2 or z == grid_size - 3):
+                            color = (210, 180, 140) # 柱
+                        elif i == 2 and x >= 3 and x <= grid_size - 4 and z >= 3 and z <= grid_size - 4:
+                            color = (165, 42, 42) # 屋根の部分
                         
                         draw.rectangle(
                             [x * scale, z * scale, (x + 1) * scale - 1, (z + 1) * scale - 1],
                             fill=color,
                             outline=(200, 200, 200)
                         )
-            
-            # 画像をブラウザ上で表示できるように変換
-            buffer = io.BytesIO()
-            img.save(buffer, format="PNG")
-            img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            
-            # 画面に出力
-            output_div = document.querySelector("#output")
-            output_div.innerHTML = f'<h3>生成された設計図:</h3><img src="data:image/png;base64,{img_str}" style="border: 2px solid #333;" />'
+                
+                # 画像をBase64にエンコード
+                buffer = io.BytesIO()
+                img.save(buffer, format="PNG")
+                img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+                
+                # HTMLに追加
+                images_elem.innerHTML += f'''
+                    <div style="text-align: center;">
+                        <p><b>{step_name}</b></p>
+                        <img src="data:image/png;base64,{img_str}" style="border: 2px solid #333;" />
+                    </div>
+                '''
     </script>
+
 </body>
 </html>
