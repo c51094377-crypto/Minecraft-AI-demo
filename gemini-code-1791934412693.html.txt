@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>マイクラ設計図ジェネレーター (ブラウザ版)</title>
+    <!-- PyScriptの読み込み -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+</head>
+<body>
+    <h1>マイクラ建築 簡易設計図メーカー</h1>
+    <p>下のボタンを押すと、ブラウザ内でPythonが動いて設計図を描画します。</p>
+    
+    <button py-click="generate_blueprint">設計図を作成する</button>
+    
+    <div id="output" style="margin-top: 20px;"></div>
+
+    <!-- Pythonコードをここに記述 -->
+    <script type="py" config='{"packages": ["pillow"]}'>
+        from pyscript import document
+        from PIL import Image, ImageDraw
+        import io
+        import base64
+
+        def generate_blueprint(event):
+            # 16x16のグリッドで設計図を描画
+            grid_size = 16
+            scale = 20
+            
+            img = Image.new("RGB", (grid_size * scale, grid_size * scale), color="white")
+            draw = ImageDraw.Draw(img)
+            
+            # 簡単な外周と柱の描画ロジック
+            for x in range(grid_size):
+                for z in range(grid_size):
+                    if x == 0 or x == grid_size - 1 or z == 0 or z == grid_size - 1:
+                        color = (128, 128, 128) # 石
+                        if (x == 0 and z == 0) or (x == 0 and z == grid_size - 1):
+                            color = (139, 69, 19) # 木の柱
+                        
+                        draw.rectangle(
+                            [x * scale, z * scale, (x + 1) * scale - 1, (z + 1) * scale - 1],
+                            fill=color,
+                            outline=(200, 200, 200)
+                        )
+            
+            # 画像をブラウザ上で表示できるように変換
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG")
+            img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            
+            # 画面に出力
+            output_div = document.querySelector("#output")
+            output_div.innerHTML = f'<h3>生成された設計図:</h3><img src="data:image/png;base64,{img_str}" style="border: 2px solid #333;" />'
+    </script>
+</body>
+</html>
